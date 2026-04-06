@@ -1,14 +1,610 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dopamine Cuts!</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Sans+KR:wght@300;400;700&display=swap');
 
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-<title>Dopamine Cuts</title>
-<link rel="stylesheet" href="style.css">
+    :root {
+      --bg: #F2F0EA;
+      --ink: #0d0d0d;
+      --accent: #C8F54A;
+      --red: #E8291C;
+      --muted: rgba(13,13,13,0.38);
+      --border: rgba(13,13,13,0.14);
+      --mono: 'Space Mono', monospace;
+      --sans: 'Noto Sans KR', sans-serif;
+    }
+
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      cursor: crosshair;
+    }
+
+    /* ── HEADER ── */
+    #header {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 30;
+      height: 44px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px;
+      background: var(--bg);
+      border-bottom: 1.5px solid var(--ink);
+    }
+    .hd-left {
+      display: flex; align-items: baseline; gap: 10px;
+    }
+    #header h1 {
+      font-family: var(--mono); font-size: 13px; font-weight: 700;
+      color: var(--ink); letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    #header h1 em {
+      font-style: normal;
+      background: var(--accent);
+      padding: 1px 5px;
+    }
+    .hd-sub {
+      font-family: var(--sans); font-size: 10px; color: var(--muted);
+    }
+    .hd-right { display: flex; align-items: center; gap: 12px; }
+    #count-badge {
+      font-family: var(--mono); font-size: 10px; color: var(--ink);
+      border: 1px solid var(--ink); padding: 2px 9px;
+    }
+    .filter-pills { display: flex; gap: 6px; }
+    .fpill {
+      font-family: var(--mono); font-size: 9px; color: var(--muted);
+      border: 1px solid var(--border); padding: 2px 8px;
+      cursor: pointer; transition: all 0.15s; background: transparent;
+      text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .fpill:hover, .fpill.active {
+      background: var(--ink); color: var(--bg); border-color: var(--ink);
+    }
+    .fpill.danger.active { background: var(--red); border-color: var(--red); }
+
+    /* ── BACKGROUND MASONRY ── */
+    #bg-layer {
+      position: fixed; inset: 0; top: 44px; z-index: 0;
+      overflow-y: auto; overflow-x: hidden;
+      padding: 0;
+      pointer-events: none;
+    }
+
+    /* 상단 컬럼 레이블 바 */
+    #col-bar {
+      display: flex; align-items: center;
+      padding: 6px 20px; gap: 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      position: sticky; top: 0; z-index: 2;
+    }
+    .col-label {
+      font-family: var(--mono); font-size: 8px; font-weight: 700;
+      color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase;
+    }
+    .col-label.sep { flex: 1; }
+
+    /* Entkunstung 스타일 카드 그리드 */
+    #card-grid {
+      columns: 4 220px;
+      column-gap: 0;
+      padding: 0;
+    }
+
+    .entry-card {
+      break-inside: avoid;
+      border-bottom: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      padding: 14px 16px;
+      display: flex; flex-direction: column; gap: 6px;
+      opacity: 0; animation: cardIn 0.3s forwards;
+      background: var(--bg);
+      transition: background 0.12s;
+    }
+    .entry-card:hover { background: rgba(200,245,74,0.08); }
+    @keyframes cardIn { to { opacity: 1; } }
+
+    /* 카드 상단: 번호 + 태그들 */
+    .card-top {
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    }
+    .card-num {
+      font-family: var(--mono); font-size: 9px; font-weight: 700;
+      color: var(--red); min-width: 20px;
+    }
+    .tag {
+      font-family: var(--mono); font-size: 8px;
+      border: 1px solid var(--border);
+      padding: 1px 6px; border-radius: 999px;
+      color: var(--muted); letter-spacing: 0.04em;
+      text-transform: uppercase; white-space: nowrap;
+    }
+    .tag.media  { border-color: rgba(13,13,13,0.3); color: var(--ink); }
+    .tag.rating { border-color: rgba(232,41,28,0.4); color: var(--red); }
+    .tag.result-yes { background: var(--red); border-color: var(--red); color: #fff; }
+    .tag.result-no  { background: rgba(200,245,74,0.5); border-color: rgba(100,140,0,0.3); color: #3a5200; }
+
+    /* 타이틀 (큰 텍스트) */
+    .card-title {
+      font-family: var(--sans); font-size: 13px; font-weight: 700;
+      color: var(--ink); line-height: 1.35;
+    }
+
+    /* 메타 정보 */
+    .card-meta {
+      font-family: var(--mono); font-size: 9px; color: var(--muted);
+      line-height: 1.7;
+    }
+    .card-meta span { color: var(--ink); }
+
+    /* 썸네일 (이미지 URL 있을 때) */
+    .card-thumb {
+      width: 100%; aspect-ratio: 16/9;
+      object-fit: cover; display: block;
+      background: rgba(13,13,13,0.06);
+    }
+    .card-thumb-placeholder {
+      width: 100%; height: 60px;
+      background: repeating-linear-gradient(
+        45deg,
+        rgba(13,13,13,0.04) 0px,
+        rgba(13,13,13,0.04) 2px,
+        transparent 2px,
+        transparent 8px
+      );
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--mono); font-size: 8px; color: var(--muted);
+    }
+
+    /* 비판점 텍스트 */
+    .card-critique {
+      font-family: var(--sans); font-size: 10px; color: var(--muted);
+      line-height: 1.5; font-style: italic;
+      border-left: 2px solid var(--border);
+      padding-left: 8px;
+    }
+
+    /* ── PHYSICS CANVAS ── */
+    #canvas-wrap {
+      position: fixed; inset: 0; top: 44px; z-index: 10;
+    }
+    #physics-canvas { position: absolute; inset: 0; display: block; }
+
+    /* ── HINT ── */
+    #hint {
+      position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+      z-index: 40; pointer-events: none;
+      font-family: var(--mono); font-size: 9px; color: var(--ink);
+      background: var(--accent); padding: 5px 16px;
+      border: 1px solid rgba(0,0,0,0.2);
+      animation: blink 2.8s ease-in-out infinite; white-space: nowrap;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    /* ── TOOLTIP ── */
+    #tooltip {
+      position: fixed; z-index: 50; pointer-events: none;
+      background: var(--ink); color: #fff;
+      font-family: var(--mono); font-size: 9px;
+      padding: 10px 13px; max-width: 200px;
+      border-top: 2px solid var(--accent);
+      opacity: 0; transition: opacity 0.1s; line-height: 1.9;
+    }
+    #tooltip.on { opacity: 1; }
+    #tooltip .tt-num  { color: var(--accent); font-size: 8px; }
+    #tooltip .tt-name { font-weight: 700; font-size: 11px; margin: 2px 0 5px; color: #fff; }
+    #tooltip .tt-row  { color: rgba(255,255,255,0.45); }
+    #tooltip .tt-row span { color: #fff; }
+
+    /* ── LOADING ── */
+    #loading {
+      position: fixed; inset: 0; z-index: 100;
+      background: var(--ink);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 18px;
+    }
+    #loading h2 {
+      font-family: var(--mono); font-size: 18px; color: var(--bg);
+      font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+    }
+    #loading h2 em { font-style: normal; background: var(--accent); color: var(--ink); padding: 0 6px; }
+    .l-track { width: 220px; height: 1px; background: rgba(255,255,255,0.1); }
+    .l-fill  { height: 100%; width: 0; background: var(--accent); transition: width 0.2s; }
+    #l-msg   { font-family: var(--sans); font-size: 10px; color: rgba(255,255,255,0.35); }
+  </style>
 </head>
-
 <body>
-    <h1 class="title">Dopamine Cuts</h1>
-    <h2 class="subtitle">A simple dopamine detox guide for everyone</h2>
+
+<div id="loading">
+  <h2>Dopamine <em>Cuts!</em></h2>
+  <div class="l-track"><div class="l-fill" id="l-fill"></div></div>
+  <div id="l-msg">데이터 불러오는 중...</div>
+</div>
+
+<div id="header">
+  <div class="hd-left">
+    <h1>Dopamine <em>Cuts!</em></h1>
+    <span class="hd-sub">민낯의 서사를 발견하는 도파민 큐브들</span>
+  </div>
+  <div class="hd-right">
+    <div class="filter-pills">
+      <button class="fpill active" data-filter="all">ALL</button>
+      <button class="fpill danger" data-filter="yes">● 과다</button>
+      <button class="fpill" data-filter="no">○ 정상</button>
+    </div>
+    <span id="count-badge">— cuts</span>
+  </div>
+</div>
+
+<div id="bg-layer">
+  <div id="col-bar">
+    <span class="col-label">No.</span>
+    <span class="col-label sep"></span>
+    <span class="col-label">매체</span>
+    <span class="col-label sep"></span>
+    <span class="col-label">등급</span>
+    <span class="col-label sep"></span>
+    <span class="col-label">결과</span>
+  </div>
+  <div id="card-grid"></div>
+</div>
+
+<div id="canvas-wrap">
+  <canvas id="physics-canvas"></canvas>
+</div>
+
+<div id="hint">CLICK ANYWHERE — 클릭하면 이미지들이 날아올라요</div>
+
+<div id="tooltip">
+  <div class="tt-num"  id="tt-num"></div>
+  <div class="tt-name" id="tt-name"></div>
+  <div class="tt-row"  id="tt-media"></div>
+  <div class="tt-row"  id="tt-company"></div>
+  <div class="tt-row"  id="tt-year"></div>
+  <div class="tt-row"  id="tt-rating"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+<script>
+(() => {
+  const SHEET_ID = "1W97_oIqb3qeJxLJjNvOJeq-429l3UnqWoKIXI2RdfPA";
+  const GID      = "481699646";
+  const CSV_URL  = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
+
+  const K = {
+    id:       "ID",
+    image:    "이미지",
+    media:    "1차 분류(매체)",
+    director: "제작자(감독)",
+    company:  "제작사",
+    year:     "개봉년도",
+    rating:   "관람/이용등급",
+    critique: "비판점",
+    result:   "결과(5개 항목 중 3개 과반 수 이상이면 필요이상의 도파민으로 선정)",
+  };
+
+  /* ── CSV 파서 ── */
+  function parseCSV(text) {
+    const lines = text.trim().split(/\r?\n/);
+    const headers = splitLine(lines[0]).map(h => h.trim());
+    return lines.slice(1).map(line => {
+      const vals = splitLine(line);
+      const o = {};
+      headers.forEach((h, i) => { o[h] = (vals[i] || "").trim(); });
+      return o;
+    }).filter(r => Object.values(r).some(v => v));
+  }
+  function splitLine(line) {
+    const r = []; let cur = "", q = false;
+    for (const c of line) {
+      if (c === '"') q = !q;
+      else if (c === ',' && !q) { r.push(cur); cur = ""; }
+      else cur += c;
+    }
+    r.push(cur); return r;
+  }
+
+  function isYesResult(val) {
+    return ['O','○','Y','YES','예','TRUE','1','true','T'].includes((val||'').trim());
+  }
+
+  /* ── 배경 카드 렌더 ── */
+  let allCards = [];
+
+  function renderCards(rows) {
+    const grid = document.getElementById('card-grid');
+    grid.innerHTML = '';
+    allCards = [];
+
+    rows.forEach((r, i) => {
+      const res = isYesResult(r[K.result]);
+      const imgUrl = (r[K.image] || '').trim();
+
+      const card = document.createElement('div');
+      card.className = 'entry-card';
+      card.style.animationDelay = `${i * 0.018}s`;
+      card.dataset.result = res ? 'yes' : 'no';
+
+      // 썸네일
+      let thumbHtml = '';
+      if (imgUrl && imgUrl.startsWith('http')) {
+        thumbHtml = `<img class="card-thumb" src="${imgUrl}" alt="" loading="lazy"
+          onerror="this.outerHTML='<div class=card-thumb-placeholder>NO IMAGE</div>'">`;
+      } else {
+        thumbHtml = `<div class="card-thumb-placeholder">IMAGE PENDING</div>`;
+      }
+
+      // 비판점
+      const critique = r[K.critique] || r["비판점"] || '';
+      const critiqueHtml = critique
+        ? `<div class="card-critique">${critique.slice(0, 80)}${critique.length > 80 ? '…' : ''}</div>`
+        : '';
+
+      card.innerHTML = `
+        ${thumbHtml}
+        <div class="card-top">
+          <span class="card-num">${String(i+1).padStart(2,'0')}</span>
+          ${r[K.media]  ? `<span class="tag media">${r[K.media]}</span>`  : ''}
+          ${r[K.rating] ? `<span class="tag rating">${r[K.rating]}</span>` : ''}
+          <span class="tag ${res ? 'result-yes' : 'result-no'}">${res ? '● 과다' : '○ 정상'}</span>
+        </div>
+        <div class="card-title">${r[K.id] || '—'}</div>
+        <div class="card-meta">
+          ${r[K.director] ? `<span>${r[K.director]}</span>` : ''}
+          ${r[K.company]  ? ` · ${r[K.company]}` : ''}
+          ${r[K.year]     ? ` · <span>${r[K.year]}</span>` : ''}
+        </div>
+        ${critiqueHtml}
+      `;
+      grid.appendChild(card);
+      allCards.push(card);
+    });
+  }
+
+  /* ── 필터 ── */
+  function setupFilter(rows) {
+    document.querySelectorAll('.fpill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.fpill').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const f = btn.dataset.filter;
+        allCards.forEach(card => {
+          if (f === 'all' || card.dataset.result === f) {
+            card.style.display = '';
+          } else {
+            card.style.display = 'none';
+          }
+        });
+      });
+    });
+  }
+
+  /* ── 이미지 로드 ── */
+  function loadImg(url) {
+    return new Promise(resolve => {
+      if (!url || !url.startsWith('http')) return resolve(null);
+      const img = new Image();
+      img.onload  = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
+  }
+
+  /* ── 물리 엔진 ── */
+  function initPhysics(rows, imgs) {
+    const { Engine, Runner, Bodies, World, Mouse, MouseConstraint, Body } = Matter;
+
+    const canvas = document.getElementById('physics-canvas');
+    const ctx    = canvas.getContext('2d');
+    const TOP    = 44;
+
+    function resize() {
+      canvas.width  = window.innerWidth;
+      canvas.height = window.innerHeight - TOP;
+    }
+    resize();
+    window.addEventListener('resize', () => {
+      resize();
+      Body.setPosition(floor, { x: canvas.width/2, y: canvas.height + 55 });
+      Body.setPosition(wallR, { x: canvas.width + 55, y: canvas.height/2 });
+    });
+
+    const engine = Engine.create({ gravity: { y: 1.0 } });
+    const world  = engine.world;
+
+    const floor = Bodies.rectangle(canvas.width/2, canvas.height+55, canvas.width+300, 110, { isStatic: true });
+    const wallL = Bodies.rectangle(-55, canvas.height/2, 110, canvas.height*3, { isStatic: true });
+    const wallR = Bodies.rectangle(canvas.width+55, canvas.height/2, 110, canvas.height*3, { isStatic: true });
+    World.add(world, [floor, wallL, wallR]);
+
+    const TARGET_W = 140;
+    const cubes = [];
+
+    // 이미지 없는 행도 포함 — 이미지 있을 때만 큐브 생성
+    rows.forEach((row, i) => {
+      const img = imgs[i];
+      // 이미지 없으면 컬러 블록으로 대체
+      const ratio = (img && img.naturalWidth && img.naturalHeight)
+        ? (img.naturalWidth / img.naturalHeight) : (16/9);
+      const bw = TARGET_W;
+      const bh = Math.round(bw / ratio);
+
+      const x = 80 + Math.random() * (window.innerWidth - 160);
+      const y = -80 - i * 28;
+
+      const body = Bodies.rectangle(x, y, bw, bh, {
+        restitution: 0.38, friction: 0.07, frictionAir: 0.012, label: 'cube',
+      });
+      body._img = img;
+      body._row = row;
+      body._bw  = bw;
+      body._bh  = bh;
+      body._idx = i;
+      Body.setAngle(body, (Math.random() - 0.5) * 0.8);
+      World.add(world, body);
+      cubes.push(body);
+    });
+
+    document.getElementById('count-badge').textContent = `${cubes.length} cuts`;
+
+    Runner.run(Runner.create(), engine);
+
+    /* 드로우 */
+    const ACCENT = '#C8F54A';
+    const INK    = '#0d0d0d';
+
+    function draw() {
+      requestAnimationFrame(draw);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (const body of cubes) {
+        const { x, y } = body.position;
+        const angle = body.angle;
+        const bw = body._bw, bh = body._bh;
+        const img = body._img;
+
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+
+        ctx.shadowColor   = 'rgba(0,0,0,0.22)';
+        ctx.shadowBlur    = 14;
+        ctx.shadowOffsetX = 4;
+        ctx.shadowOffsetY = 6;
+
+        if (img && img.complete && img.naturalWidth > 0) {
+          ctx.drawImage(img, -bw/2, -bh/2, bw, bh);
+        } else {
+          // 컬러 폴백 — 결과에 따라 색상
+          const res = isYesResult(body._row[K.result]);
+          ctx.fillStyle = res ? '#FFD9D7' : ACCENT;
+          ctx.fillRect(-bw/2, -bh/2, bw, bh);
+
+          ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
+          ctx.shadowOffsetX = ctx.shadowOffsetY = 0;
+
+          // 타이틀
+          ctx.fillStyle    = INK;
+          ctx.font         = `700 9px 'Space Mono', monospace`;
+          ctx.textAlign    = 'center';
+          ctx.textBaseline = 'middle';
+          const label = (body._row[K.id] || `#${body._idx+1}`);
+          ctx.fillText(label.slice(0, 18), 0, 0);
+        }
+
+        ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = ctx.shadowOffsetY = 0;
+
+        ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+        ctx.lineWidth   = 0.8;
+        ctx.strokeRect(-bw/2, -bh/2, bw, bh);
+
+        ctx.restore();
+      }
+    }
+    draw();
+
+    /* 마우스 */
+    const mouse = Mouse.create(canvas);
+    mouse.element.removeEventListener("mousewheel", mouse.mousewheel);
+    mouse.element.removeEventListener("DOMMouseScroll", mouse.mousewheel);
+    const mc = MouseConstraint.create(engine, {
+      mouse, constraint: { stiffness: 0.18, damping: 0.1, render: { visible: false } }
+    });
+    World.add(world, mc);
+
+    /* 툴팁 */
+    const tooltip = document.getElementById('tooltip');
+    canvas.addEventListener('mousemove', e => {
+      if (mc.body && mc.body._row) {
+        const r = mc.body._row;
+        document.getElementById('tt-num').textContent   = `#${String(mc.body._idx+1).padStart(2,'0')}`;
+        document.getElementById('tt-name').textContent  = r[K.id] || '—';
+        document.getElementById('tt-media').innerHTML   = r[K.media]   ? `매체 <span>${r[K.media]}</span>`   : '';
+        document.getElementById('tt-company').innerHTML = r[K.company] ? `제작사 <span>${r[K.company]}</span>` : '';
+        document.getElementById('tt-year').innerHTML    = r[K.year]    ? `개봉 <span>${r[K.year]}</span>`    : '';
+        document.getElementById('tt-rating').innerHTML  = r[K.rating]  ? `등급 <span>${r[K.rating]}</span>`  : '';
+        tooltip.style.left = (e.clientX + 16) + 'px';
+        tooltip.style.top  = (e.clientY - 8)  + 'px';
+        tooltip.classList.add('on');
+      } else {
+        tooltip.classList.remove('on');
+      }
+    });
+
+    /* 클릭 → 튀어오르기 */
+    canvas.addEventListener('mousedown', e => {
+      if (mc.body) return;
+      const mx = e.clientX, my = e.clientY - TOP;
+      cubes.forEach(body => {
+        const dx   = body.position.x - mx;
+        const dy   = body.position.y - my;
+        const dist = Math.hypot(dx, dy);
+        const str  = Math.max(0, 1 - dist / 620);
+        if (str <= 0) return;
+        const ang = Math.atan2(dy, dx);
+        const f   = 0.04 + str * 0.22;
+        Body.applyForce(body, body.position, {
+          x: Math.cos(ang) * f * 0.3 + (Math.random() - 0.5) * 0.02,
+          y: -f,
+        });
+        Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.6);
+      });
+    });
+  }
+
+  /* ── 메인 ── */
+  async function main() {
+    const fill = document.getElementById('l-fill');
+    const msg  = document.getElementById('l-msg');
+    const setP = (p, t) => { fill.style.width = p + '%'; if (t) msg.textContent = t; };
+
+    try {
+      setP(10, 'CSV 불러오는 중...');
+      const res = await fetch(CSV_URL);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = await res.text();
+
+      setP(22, '데이터 파싱 중...');
+      const rows = parseCSV(text);
+      console.log('[DC] rows:', rows.length, '/ sample:', rows[0]);
+
+      renderCards(rows);
+      setupFilter(rows);
+      setP(35, `이미지 로딩 중...`);
+
+      const imgs = [];
+      for (let i = 0; i < rows.length; i++) {
+        const img = await loadImg(rows[i][K.image]);
+        imgs.push(img);
+        setP(35 + Math.round((i / rows.length) * 58), `이미지 ${i+1}/${rows.length}`);
+      }
+
+      setP(100, '완료!');
+      await new Promise(r => setTimeout(r, 200));
+
+      initPhysics(rows, imgs);
+
+      const loading = document.getElementById('loading');
+      loading.style.transition = 'opacity 0.4s';
+      loading.style.opacity = '0';
+      setTimeout(() => loading.remove(), 420);
+
+    } catch (err) {
+      console.error(err);
+      msg.textContent = `오류: ${err.message}`;
+      msg.style.color = '#E8291C';
+    }
+  }
+
+  main();
+})();
+</script>
+</body>
+</html>
